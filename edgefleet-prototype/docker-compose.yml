@@ -1,0 +1,193 @@
+
+version: '3.8'
+
+services:
+  # Backend API with Traffic Sign Detection
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: edgefleet-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - ./data:/app/data
+      - ./logs/backend:/app/logs
+      - ./ml/saved_models:/app/ml/saved_models
+    environment:
+      - DATABASE_URL=sqlite:///./data/fleet_data.db
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:3002,http://127.0.0.1:3000,http://127.0.0.1:3001,http://127.0.0.1:3002
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY:-}
+      - STREET_VIEW_API_KEY=${GOOGLE_STREET_VIEW_API_KEY:-}
+      - NODE_ENV=production
+      - LOG_LEVEL=INFO
+      - MODEL_PATH=/app/ml/saved_models/traffic_sign_yolov5.pt
+      - REDIS_URL=redis://redis:6379/0
+      - REDIS_CACHE_TTL=3600
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - edgefleet-network
+    depends_on:
+      - redis
+
+  # Frontend Dashboard with Enhanced UI
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: edgefleet-frontend
+    ports:
+      - "3002:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - ./logs/frontend:/app/logs
+    environment:
+      - REACT_APP_API_URL=http://backend:8000
+      - REACT_APP_MAPBOX_TOKEN=${REACT_APP_MAPBOX_TOKEN:-}
+      - REACT_APP_GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY:-}
+      - NODE_ENV=production
+      - GENERATE_SOURCEMAP=false
+      - CHOKIDAR_USEPOLLING=true
+    command: sh -c "npm install && npm run build && serve -s build -l 3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - edgefleet-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Redis for Caching and Pub/Sub
+  redis:
+    image: redis:7-alpine
+    container_name: edgefleet-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+      - ./logs/redis:/var/log/redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - edgefleet-network
+    restart: unless-stopped
+
+  # Monitoring Stack
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: edgefleet-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    networks:
+      - edgefleet-network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: edgefleet-grafana
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    depends_on:
+      - prometheus
+    networks:
+      - edgefleet-network
+    restart: unless-stopped
+
+  # Traffic Sign Data Collector (CPU Version)
+  traffic-collector:
+    build:
+      context: ./ml
+      dockerfile: Dockerfile.traffic-collector
+    container_name: edgefleet-traffic-collector
+    volumes:
+      - ./ml/data:/app/data
+      - ./ml/saved_models:/app/saved_models
+      - ./logs/traffic-collector:/app/logs
+    environment:
+      - GOOGLE_STREET_VIEW_API_KEY=${GOOGLE_STREET_VIEW_API_KEY:-}
+      - MODEL_PATH=/app/saved_models/traffic_sign_yolov8.pt
+      - REDIS_URL=redis://redis:6379/0
+      - DEVICE=cpu
+      - PYTHONUNBUFFERED=1
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+    depends_on:
+      - redis
+      - backend
+    networks:
+      - edgefleet-network
+    restart: unless-stopped
+
+  # Real-time Data Simulator
+  simulator:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: edgefleet-simulator
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - backend
+    command: python utils/simulator.py
+    restart: unless-stopped
+    networks:
+      - edgefleet-network
+
+# Named volumes for persistent data
+volumes:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+  model_data:
+  node_modules:
+
+# Custom bridge network for all services
+networks:
+  edgefleet-network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.28.0.0/16
+          gateway: 172.28.5.254

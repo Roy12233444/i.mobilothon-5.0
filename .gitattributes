@@ -1,0 +1,19 @@
+# ML Models
+*.pt filter=lfs diff=lfs merge=lfs -text
+*.pth filter=lfs diff=lfs merge=lfs -text
+*.pyd filter=lfs diff=lfs merge=lfs -text
+*.dll filter=lfs diff=lfs merge=lfs -text
+*.lib filter=lfs diff=lfs merge=lfs -text
+*.pyth filter=lfs diff=lfs merge=lfs -text
+*.dat filter=lfs diff=lfs merge=lfs -text
+# Node.js
+**/node_modules/.cache/**/*.pack filter=lfs diff=lfs merge=lfs -text
+# Virtual Environment
+.edgefleet-prototype/**/*.pyd filter=lfs diff=lfs merge=lfs -text
+.edgefleet-prototype/**/*.dll filter=lfs diff=lfs merge=lfs -text
+.edgefleet-prototype/**/*.lib filter=lfs diff=lfs merge=lfs -text
+.edgefleet-prototype/Lib/site-packages/llvmlite/binding/ filter=lfs diff=lfs merge=lfs -text
+ml/saved_models/ filter=lfs diff=lfs merge=lfs -text
+.edgefleet-prototype/Lib/site-packages/cv2/ filter=lfs diff=lfs merge=lfs -text
+.edgefleet-prototype/Lib/site-packages/_polars_runtime_32/ filter=lfs diff=lfs merge=lfs -text
+.edgefleet-prototype/Lib/site-packages/torch/lib/ filter=lfs diff=lfs merge=lfs -text

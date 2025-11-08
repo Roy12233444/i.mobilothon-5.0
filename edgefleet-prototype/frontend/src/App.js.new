@@ -1,0 +1,33 @@
+import React from 'react';
+import './App.css';
+
+// Simple test component to verify React is working
+function App() {
+  return (
+    <div style={{ 
+      padding: '40px', 
+      fontSize: '24px', 
+      color: 'white',
+      backgroundColor: '#1a365d',
+      minHeight: '100vh',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      textAlign: 'center'
+    }}>
+      <h1>🚛 EdgeFleet</h1>
+      <p>Hello! If you can see this message, React is working correctly.</p>
+      <div style={{ marginTop: '20px', fontSize: '16px' }}>
+        <p>Next steps:</p>
+        <ol style={{ textAlign: 'left', maxWidth: '500px', margin: '10px auto' }}>
+          <li>Check browser's developer console (F12) for any errors</li>
+          <li>Verify the backend is running on port 8000</li>
+          <li>Check the Network tab for failed API requests</li>
+        </ol>
+      </div>
+    </div>
+  );
+}
+
+export default App;
