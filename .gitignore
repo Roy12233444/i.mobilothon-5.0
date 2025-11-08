@@ -33,8 +33,9 @@ wheels/
 *.egg
 
 # ML Models and large files
-# Note: We're tracking edgefleet-prototype/ml/saved_models/ specifically
+# We're tracking edgefleet-prototype/ml/saved_models/ specifically
 !edgefleet-prototype/ml/saved_models/
+!edgefleet-prototype/ml/saved_models/**/*
 *.pth
 *.pt
 *.pkl
